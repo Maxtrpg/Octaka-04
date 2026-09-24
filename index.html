@@ -56,7 +56,7 @@
         /* 地圖背景圖片 */
         #map-octaca { background-image: url('map/Octaka.webp'); }
         /* 🌟 移除灰階濾鏡，讓山谷重見天日 */
-        #map-nexal { background-image: url('map/Valley.webp'); } 
+        #map-nexal { background-image: url('map/Valley02.webp'); } 
 
         .map-pin { 
             position: absolute; width: 36px; height: 44px; background-color: transparent; 
@@ -122,7 +122,7 @@
 
     <div id="region-tabs">
         <button class="region-tab active" onclick="switchRegion('octaca', this)">奧克塔卡前哨站</button>
-        <button class="region-tab" onclick="switchRegion('nexal', this)">內克薩爾山谷入口 (🔒)</button>
+        <button class="region-tab locked" onclick="switchRegion('nexal', this)">內克薩爾山谷入口 (🔒)</button>
     </div>
 
     <main id="viewer-area">
@@ -131,13 +131,13 @@
             <a id="pin-inn" class="map-pin" data-label="鷹豹之憩客棧" href="01.html"></a>
             <a id="pin-market" class="map-pin" data-label="庫茲帕市集廣場" href="02.html"></a>
             <a id="pin-forge" class="map-pin" data-label="碎星熔炎鍛工坊" href="04.html"></a>
-            <a id="pin-temple" class="map-pin" data-label="普魯托克神廟" href="05.html"></a>
+            <a id="pin-temple" class="map-pin locked" data-label="普魯托克神廟 (🔒)" href="#" onclick="return false;"></a>
             <a id="pin-court" class="map-pin" data-label="血獠之廷" href="03.html"></a>
             <a id="pin-arena" class="map-pin locked" data-label="曜日競技場 (🔒)" href="#" onclick="return false;"></a>
         </div>
 
         <div id="map-nexal" class="map-panel">
-            <a id="pin-entrance" class="map-pin" data-label="黑曜石巨口關隘" href="06.html"></a>
+            <a id="pin-entrance" class="map-pin locked" data-label="黑曜石巨口關隘 (🔒)" href="#" onclick="return false;"></a>
         </div>
     </main>
 </div>
