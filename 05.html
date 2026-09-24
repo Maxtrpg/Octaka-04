@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>馬茲提卡 - 普魯托克神廟</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Noto+Serif+TC:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        /* --- 基礎設定 --- */
+        :root { --gold: #d4af37; --bg-dark: rgba(15, 12, 10, 0.9); --text: #e0d0b0; }
+        body, html { 
+            margin: 0; padding: 0; width: 100%; height: 100%; 
+            font-family: 'Noto Serif TC', serif; 
+            display: flex; justify-content: center; align-items: center; 
+            
+            /* --- 通用外部背景設定 --- */
+            background-color: #0a0a0a; 
+            background-image: url('map/cover.webp'); 
+            background-size: cover; 
+            background-position: center; 
+            background-attachment: fixed; 
+        }
+
+        /* --- 固定的 1200x720 主框架 --- */
+        #game-window {
+            width: 1200px; height: 720px; background: #000;
+            border: 3px solid var(--gold); border-radius: 8px;
+            box-shadow: 0 15px 50px rgba(0,0,0,0.9);
+            display: flex; flex-direction: column; overflow: hidden; position: relative;
+        }
+
+        /* --- 頂部總導航列 --- */
+        #master-nav {
+            height: 60px; background: #1a1511; border-bottom: 2px solid var(--gold);
+            display: flex; align-items: center; padding: 0 30px; gap: 12px; z-index: 100; flex-shrink: 0;
+        }
+        .nav-brand { color: var(--gold); font-family: 'Cinzel', serif; font-size: 1.4rem; margin-right: auto; font-weight: bold; letter-spacing: 2px; }
+        .nav-btn {
+            text-decoration: none; border: 1px solid transparent; color: var(--text);
+            font-size: 1rem; padding: 6px 10px; cursor: pointer; transition: 0.3s; font-family: 'Noto Serif TC', serif;
+        }
+        .nav-btn:hover { border-bottom: 1px solid var(--gold); color: #fff; }
+        .nav-btn.active { border: 1px solid var(--gold); background: rgba(212, 175, 55, 0.1); border-radius: 4px; color: var(--gold); }
+
+        /* --- 主畫布區 --- */
+        #viewer-area { flex: 1; position: relative; width: 100%; height: 100%; overflow: hidden; }
+        .scene-background { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-image: url('map/temple.webp'); background-size: cover; background-position: center; filter: brightness(0.45); z-index: 0; transform: scale(1.02); }
+        .game-ui { position: relative; z-index: 10; width: 100%; height: 100%; display: flex; justify-content: space-between; }
+        
+        /* === 左側：動態展示區 === */
+        .character-display-zone { position: relative; flex: 1; height: 100%; pointer-events: none; }
+        
+        .character-sprite { 
+            position: absolute; 
+            opacity: 0; transform: translateX(-20px); transition: 0.5s ease; 
+            filter: drop-shadow(0 0 20px rgba(0,0,0,0.8)); z-index: 1; 
+        }
+        .character-sprite.active { opacity: 1; transform: translateX(0); }
+        
+        /* 故事視窗 */
+        .npc-story-overlay { 
+            position: absolute; right: 30px; bottom: 40px; 
+            width: 340px; max-height: 520px; overflow-y: auto;
+            background: rgba(10, 8, 6, 0.95); 
+            border: 1px solid var(--gold); padding: 25px; 
+            color: var(--text); border-radius: 4px; 
+            box-shadow: 0 0 30px rgba(0,0,0,0.9), inset 0 0 15px rgba(212, 175, 55, 0.1); 
+            opacity: 0; transform: translateX(20px); transition: all 0.4s ease; 
+            text-align: justify; line-height: 1.7; font-size: 0.95rem; pointer-events: auto; z-index: 2; 
+        }
+        .npc-story-overlay::-webkit-scrollbar { width: 4px; }
+        .npc-story-overlay::-webkit-scrollbar-thumb { background: rgba(212, 175, 55, 0.4); }
+        .npc-story-overlay.active { opacity: 1; transform: translateX(0); }
+        .npc-story-overlay strong { color: var(--gold); font-size: 1.2rem; font-family: 'Cinzel', 'Noto Serif TC', serif; display: block; border-bottom: 1px solid rgba(212, 175, 55, 0.3); padding-bottom: 8px; margin-bottom: 12px; letter-spacing: 1px; }
+
+        /* === 右側：資訊面板 === */
+        .info-panel { width: 400px; height: 100%; background: var(--bg-dark); border-left: 2px solid var(--gold); display: flex; box-shadow: -15px 0 40px rgba(0,0,0,0.9); flex-shrink: 0; z-index: 3;}
+        .bookmarks { width: 50px; height: 100%; background: #2c251d; display: flex; flex-direction: column; border-right: 1px solid var(--gold); }
+        .bookmark-btn { writing-mode: vertical-lr; padding: 20px 10px; color: var(--gold); cursor: pointer; border-bottom: 1px solid rgba(212, 175, 55, 0.2); opacity: 0.7; letter-spacing: 3px; font-weight: bold; transition: 0.3s; font-size: 0.9rem; }
+        .bookmark-btn:hover { opacity: 1; background: rgba(212, 175, 55, 0.1); }
+        .bookmark-btn.active { opacity: 1; background: rgba(212, 175, 55, 0.2); border-left: 4px solid var(--gold); } 
+        
+        .scroll-content { flex: 1; padding: 20px; overflow-y: auto; color: var(--text); line-height: 1.8; }
+        .scroll-content::-webkit-scrollbar { width: 6px; }
+        .scroll-content::-webkit-scrollbar-thumb { background: rgba(212, 175, 55, 0.5); border-radius: 3px; }
+        
+        .info-panel h2 { font-family: 'Cinzel', serif; color: var(--gold); border-bottom: 1px solid var(--gold); margin: 0 0 15px 0; font-size: 1.5rem; }
+        .section { display: none; animation: fadeInPage 0.4s ease; }
+        .section.active { display: block; }
+        
+        .interaction-card { background: rgba(255,255,255,0.03); padding: 12px; border: 1px solid rgba(212, 175, 55, 0.1); margin-bottom: 12px; cursor: pointer; transition: 0.3s; }
+        .interaction-card:hover { border-color: var(--gold); background: rgba(212, 175, 55, 0.1); box-shadow: 0 0 15px rgba(212, 175, 55, 0.2);}
+        .interaction-card strong { color: var(--gold); display: block; margin-bottom: 5px; font-size: 1.05rem;}
+        .lore-desc { font-size: 1rem; text-align: justify; margin-bottom: 20px; padding-top: 10px; border-top: 1px dashed rgba(212, 175, 55, 0.3); }
+    </style>
+</head>
+<body>
+
+<div id="game-window">
+    <nav id="master-nav">
+        <div class="nav-brand">黑曜黎明：奧克塔卡之誓冒險札記</div>
+        <a href="index.html" class="nav-btn active">回地圖</a>
+        <a href="item.html" class="nav-btn">獲得物品</a> 
+        <a href="journals.html" class="nav-btn">冒險筆記</a>
+    </nav>
+
+    <main id="viewer-area">
+        <div class="scene-background"></div>
+        <div class="game-ui">
+            <div class="character-display-zone">
+                <img id="npc-sprite" class="character-sprite" src="" alt="">
+                <div id="story-box" class="npc-story-overlay"></div>
+            </div>
+
+            <div class="info-panel">
+                <div class="bookmarks">
+                    <div class="bookmark-btn active" onclick="showTab('intro')">神殿</div>
+                    <div class="bookmark-btn" onclick="showTab('members')">神職人員</div>
+                </div>
+
+                <div class="scroll-content">
+                    <div id="intro" class="section active">
+                        <h2>普魯托克神廟</h2>
+                        <div class="lore-desc">
+                            <p>  踏入普魯托克神殿，外界的燥熱與喧囂瞬間消失。這裡不像要塞那樣充滿火光，也不像市集那樣泥濘。整座神殿是直接從奧克塔卡下方的火山岩床中開鑿出來的，空氣冰冷、乾燥，佇立其中能聞到一種陳舊的泥土香氣與淡淡的草藥味。</p>
+                            <p>  巨大的花崗岩柱支撐著穹頂，地面鋪著磨得光滑的深色岩板。這裡是整個前哨站內最安靜的地方，安靜到能清晰聽到自己的心跳，以及從神殿深處傳來的低沉誦咒聲。</p> 
+                            <p>  神殿盡頭矗立著一座直接從原生岩壁上浮雕出來的巨型石雕。祂被塑造成一位沉默的巨人，線條粗粗獷且具幾何威嚴感，象徵著大地的無情與公正。</p>
+                        </div>
+                    </div>
+
+                    <div id="members" class="section">
+                        <h2>神殿駐守者</h2>
+                        
+                        <div class="interaction-card" onclick="loadNpc('teladatka')">
+                            <strong>特拉達特卡</strong><span>老學者</span>
+                        </div>
+                        
+                        <div class="interaction-card" onclick="loadNpc('itzama')">
+                            <strong>薩滿 (🔒)</strong><span>神殿薩滿</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script>
+    const npcData = {
+        teladatka: {
+            name: "特拉達特卡",
+            title: "生知學老學者",
+            img: "npc/teladatka.webp",
+            isHorizontal: false, 
+            bg: null,
+            story: "一位年逾古稀的人類男性。他身材瘦小，穿著一件洗得發白、沾滿草藥汁液的寬大白色棉袍。<br><br><strong>【情報】</strong>🔒（未曾深入交談）"
+        },
+        itzama: {
+            name: "薩滿 (🔒)",
+            title: "神殿薩滿",
+            img: "npc/itzama.webp",
+            isHorizontal: false,
+            bg: null,
+            story: " (🔒)"
+        }
+    };
+
+    let defaultSceneBg = ""; 
+    window.addEventListener('DOMContentLoaded', () => {
+        const bgEl = document.querySelector('.scene-background');
+        if (bgEl) {
+            defaultSceneBg = window.getComputedStyle(bgEl).backgroundImage.replace(/url\(['"]?(.*?)['"]?\)/i, '$1');
+        }
+    });
+
+    function showTab(id) {
+        document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+        document.querySelectorAll('.bookmark-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+        event.currentTarget.classList.add('active');
+        
+        document.getElementById('npc-sprite').classList.remove('active');
+        document.getElementById('story-box').classList.remove('active');
+
+        const sceneBg = document.querySelector('.scene-background');
+        if(sceneBg && defaultSceneBg) {
+            sceneBg.style.backgroundImage = `url('${defaultSceneBg}')`;
+        }
+    }
+
+    function loadNpc(key) {
+        const sprite = document.getElementById('npc-sprite');
+        const storyBox = document.getElementById('story-box');
+        const sceneBg = document.querySelector('.scene-background'); 
+        const data = npcData[key];
+        
+        sprite.classList.remove('active');
+        storyBox.classList.remove('active');
+        
+        setTimeout(() => {
+            sprite.src = data.img;
+            
+            if (sceneBg) {
+                if (data.bg) {
+                    sceneBg.style.backgroundImage = `url('${data.bg}')`;
+                } else if (defaultSceneBg) {
+                    sceneBg.style.backgroundImage = `url('${defaultSceneBg}')`;
+                }
+            }
+
+            if (data.isHorizontal) {
+                sprite.style.maxWidth = '950px';
+                sprite.style.width = '950px';
+                sprite.style.height = '100%';
+                sprite.style.left = '0px';
+                sprite.style.bottom = '0px';
+                sprite.style.objectFit = 'cover';
+                sprite.style.objectPosition = '85% center';
+                sprite.style.zIndex = '0';
+            } else {
+                sprite.style.maxWidth = '550px';
+                sprite.style.width = 'auto';
+                sprite.style.height = '100%';
+                sprite.style.left = '40px';
+                sprite.style.bottom = '0px';
+                sprite.style.objectFit = 'contain';
+                sprite.style.objectPosition = 'bottom left';
+                sprite.style.zIndex = '1';
+            }
+            
+            storyBox.innerHTML = `<strong>${data.name} <span style="font-size:0.85rem; color:#888; font-family:'Noto Serif TC';">| ${data.title}</span></strong>${data.story}`;
+            sprite.classList.add('active');
+            storyBox.classList.add('active');
+        }, 250);
+    }
+</script>
+</body>
+</html>

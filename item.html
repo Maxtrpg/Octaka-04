@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>馬茲提卡 - 重要物品</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Noto+Serif+TC:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        /* --- 基礎設定 --- */
+        :root { --gold: #d4af37; --bg-dark: rgba(15, 12, 10, 0.9); --text: #e0d0b0; --slot-bg: rgba(30, 25, 20, 0.8); }
+        body, html { 
+            margin: 0; padding: 0; width: 100%; height: 100%; 
+            font-family: 'Noto Serif TC', serif; 
+            display: flex; justify-content: center; align-items: center; 
+            background-color: #0a0a0a; 
+            background-image: url('map/cover.webp'); /* 沿用您的通用背景 */
+            background-size: cover; background-position: center; background-attachment: fixed; 
+        }
+/* --- 修正後的主框架：手抄本儀式感 --- */
+        #game-window {
+            width: 1200px; height: 720px; 
+            background: rgba(15, 12, 10, 0.95); 
+            
+            /* 🌟 核心：打造手抄本專屬的「金鑲紅」雙層古典邊框 */
+            border: 3px solid var(--gold); 
+            outline: 2px solid #8b0000;
+            outline-offset: -8px; 
+            
+            border-radius: 4px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.95), inset 0 0 50px rgba(0,0,0,0.9);
+            display: flex; flex-direction: column; overflow: hidden; position: relative;
+        }
+
+        /* --- 頂部總導航列 --- */
+        #master-nav {
+            height: 60px; background: #1a1511; border-bottom: 2px solid var(--gold);
+            display: flex; align-items: center; padding: 0 30px; gap: 12px; z-index: 100; flex-shrink: 0;
+            overflow-x: auto;
+        }
+        #master-nav::-webkit-scrollbar { height: 0px; }
+        .nav-brand { color: var(--gold); font-family: 'Cinzel', serif; font-size: 1.4rem; margin-right: auto; font-weight: bold; letter-spacing: 2px; }
+        .nav-btn {
+            text-decoration: none; border: 1px solid transparent; color: var(--text); white-space: nowrap;
+            font-size: 1rem; padding: 6px 10px; cursor: pointer; transition: 0.3s; font-family: 'Noto Serif TC', serif;
+        }
+        .nav-btn:hover { border-bottom: 1px solid var(--gold); color: #fff; }
+        .nav-btn.active { border: 1px solid var(--gold); background: rgba(212, 175, 55, 0.1); border-radius: 4px; color: var(--gold); }
+
+        /* --- 物品欄專屬雙拼排版 --- */
+        #viewer-area { flex: 1; display: flex; width: 100%; height: 100%; overflow: hidden; }
+        
+/* --- 修正後的左側：調亮帶點古籍褐色的左頁 --- */
+        .inventory-section { 
+            width: 550px; height: 100%; padding: 40px 30px 30px 40px; box-sizing: border-box;
+            border-right: 2px solid #5c3a21; 
+            /* 🌟 將原本接近死黑的顏色，調亮成深褐色羊皮紙感 */
+            background: linear-gradient(135deg, rgba(45, 30, 20, 0.95) 0%, rgba(25, 18, 12, 0.98) 100%);
+            outline: 1px solid rgba(139, 0, 0, 0.3);
+            outline-offset: -6px;
+            display: flex; flex-direction: column;
+        }
+        .inventory-header { 
+            font-family: 'Cinzel', serif; color: var(--gold); 
+            border-bottom: 1px solid rgba(212, 175, 55, 0.3); 
+            padding-bottom: 10px; margin-bottom: 20px; font-size: 1.5rem; letter-spacing: 2px;
+        }
+        
+/* --- 絕對防重疊的網格容器 (隱藏捲軸版) --- */
+        .item-grid {
+            display: grid; 
+            grid-template-columns: repeat(4, 100px); 
+            gap: 20px; 
+            justify-content: center; 
+            overflow-y: auto; 
+            overflow-x: hidden; /* 🌟 強制關閉水平捲動，防破版 */
+            padding-right: 10px; 
+            padding-bottom: 30px; 
+            align-content: start;
+            
+            /* 🌟 隱藏捲動條但保留滾輪功能 (支援 Firefox 與 IE/Edge) */
+            scrollbar-width: none; 
+            -ms-overflow-style: none; 
+        }
+        
+        /* 🌟 隱藏捲動條 (支援 Chrome, Safari, Edge) */
+        .item-grid::-webkit-scrollbar { 
+            display: none; 
+        }
+        /* --- 絕對正方形的物品插槽 --- */
+        .item-slot {
+            width: 100px; /* 🌟 強制固定寬度 */
+            height: 100px; /* 🌟 強制固定高度，徹底解決垂直被壓縮的問題 */
+            background: var(--slot-bg); 
+            border: 2px solid #3a2a18; 
+            border-radius: 6px;
+            cursor: pointer; 
+            position: relative; 
+            transition: all 0.2s ease;
+            display: flex; justify-content: center; align-items: center; 
+            overflow: hidden;
+            box-shadow: inset 0 0 15px rgba(0,0,0,0.8);
+            box-sizing: border-box; 
+        }
+        
+        .item-slot img { 
+            width: 85%; height: 85%; 
+            object-fit: contain; 
+            filter: drop-shadow(2px 2px 5px rgba(0,0,0,0.8)); 
+            transition: 0.3s; 
+        }
+        
+        /* 互動特效 */
+        .item-slot:hover { border-color: #a88a44; background: rgba(212, 175, 55, 0.1); transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0,0,0,0.5); }
+        .item-slot:hover img { transform: scale(1.1); }
+        .item-slot.active { border-color: var(--gold); background: rgba(212, 175, 55, 0.2); box-shadow: 0 0 15px rgba(212, 175, 55, 0.4); }
+
+        /* 空槽樣式 */
+        .item-slot.empty { cursor: default; opacity: 0.3; }
+        .item-slot.empty:hover { border-color: #3a2a18; background: var(--slot-bg); transform: none; box-shadow: inset 0 0 15px rgba(0,0,0,0.8); }
+
+        /* === 右側：物品鑑定詳細面板 (寬度 650px) === */
+        .detail-section { 
+            flex: 1; padding: 40px; box-sizing: border-box; 
+            /* 🌟 建議將此處背景換成下方為您設計的手抄本材質圖 */
+            background: url('codex_bg.webp') center/cover; 
+            position: relative; display: flex; flex-direction: column; align-items: center;
+            outline: 1px solid rgba(139, 0, 0, 0.3);
+            outline-offset: -6px;
+        }
+/* --- 修正後的右側：大幅調低黑色遮罩，讓您的背景圖透出來 --- */
+        .detail-overlay { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+            /* 🌟 將原本 0.85 的黑度大幅降到 0.35，讓羊皮紙圖案漂亮展現 */
+            background: rgba(15, 10, 5, 0.35); 
+            z-index: 1; 
+        }
+        
+        /* 實際內容區 */
+        .detail-content { position: relative; z-index: 2; width: 100%; height: 100%; display: flex; flex-direction: column; opacity: 0; transition: opacity 0.4s ease; }
+        .detail-content.active { opacity: 1; }
+
+/* --- 調整後的物品大圖展示框 --- */
+        .item-large-display {
+            width: 100%; height: 320px; 
+            background: rgba(10, 8, 6, 0.6); 
+            border: 2px solid #5c3a21; /* 古樸深色邊框 */
+            border-radius: 4px; margin-bottom: 25px; 
+            display: flex; justify-content: center; align-items: center;
+            box-shadow: inset 0 0 25px rgba(0,0,0,0.9);
+        }
+        .item-large-display img { 
+            max-width: 95%; /* 🌟 圖片能撐滿展示框的寬度極限 (原為 90%) */
+            max-height: 95%; /* 🌟 圖片能撐滿展示框的高度極限 (原為 90%) */
+            object-fit: contain; 
+            filter: drop-shadow(0 10px 20px rgba(0,0,0,0.9)); 
+        }
+
+        /* 文字資訊區 */
+        .item-title-box { text-align: center; margin-bottom: 20px; border-bottom: 1px solid rgba(212, 175, 55, 0.3); padding-bottom: 15px; }
+        #detail-name { margin: 0; font-family: 'Cinzel', serif; font-size: 2rem; color: var(--gold); letter-spacing: 2px; text-shadow: 0 2px 10px rgba(0,0,0,0.8); }
+        #detail-type { margin-top: 5px; font-size: 0.95rem; color: #a89278; font-weight: bold; }
+
+        .item-text-box { flex: 1; overflow-y: auto; padding-right: 15px; color: var(--text); line-height: 1.8; text-align: justify; font-size: 1.05rem; }
+        .item-text-box::-webkit-scrollbar { width: 4px; }
+        .item-text-box::-webkit-scrollbar-thumb { background: rgba(212, 175, 55, 0.4); }
+        
+        .effect-text { color: #ffeb99; font-weight: bold; margin-top: 15px; padding: 10px; background: rgba(212, 175, 55, 0.1); border-left: 4px solid var(--gold); }
+        .warning-text { color: #ff4500; font-weight: bold; margin-top: 10px; padding: 10px; background: rgba(255, 69, 0, 0.1); border-left: 4px solid #ff4500; }
+
+        /* 未選擇物品時的預設提示 */
+        .no-selection { position: absolute; z-index: 2; top: 50%; left: 50%; transform: translate(-50%, -50%); color: rgba(212,175,55,0.4); font-size: 1.2rem; letter-spacing: 3px; font-family: 'Cinzel', serif; text-align: center; }
+
+    </style>
+</head>
+<body>
+
+<div id="game-window">
+    <nav id="master-nav">
+        <div class="nav-brand">黑曜黎明：奧克塔卡之誓冒險札記</div>
+        <a href="index.html" class="nav-btn active">回地圖</a>
+        <a href="item.html" class="nav-btn">獲得物品</a> 
+        <a href="journals.html" class="nav-btn">冒險筆記</a> 
+    </nav>
+
+    <main id="viewer-area">
+        
+        <div class="inventory-section">
+            <div class="inventory-header">獲得物品</div>
+            <div class="item-grid" id="inventory-grid">
+                </div>
+        </div>
+
+        <div class="detail-section">
+            <div class="detail-overlay"></div>
+            
+            <div class="no-selection" id="no-selection-hint">
+                <div style="font-size: 3rem; margin-bottom: 10px;">🔍</div>
+                請選擇一件物品
+            </div>
+
+            <div class="detail-content" id="detail-content">
+                <div class="item-large-display">
+                    <img id="detail-img" src="" alt="">
+                </div>
+                
+                <div class="item-title-box">
+                    <h2 id="detail-name">物品名稱</h2>
+                    <div id="detail-type">【物品類型】</div>
+                </div>
+
+                <div class="item-text-box">
+                    <div id="detail-lore">背景故事與描述...</div>
+                    <div id="detail-extra"></div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+</div>
+
+<script>
+    // --- 物品資料庫 ---
+    const itemData = {
+        order: {
+            id: "order",
+            name: "奧克塔卡召集令",
+            type: "【任務】",
+            icon: "items/00.webp", // 建議準備正方形的透明去背小圖示
+            img: "items/order.webp", // 右側大圖 (若無分大小圖，兩邊填一樣的路徑即可)
+            lore: "來自庫塔卡攝政王阿特克斯所頒布的命令，有志之士可前往奧克塔卡前哨站面見當地守備官特拉卡。",
+            effect: "接受奧克塔卡官方徵召。",
+            warning: "奧克塔卡鄰近內克薩爾山谷，十分危險。"
+        },
+        blood: {
+            id: "blood",
+            name: "血誓",
+            type: "【特殊】",
+            icon: "items/01.webp",
+            img: "items/blood.webp",
+            lore: "奧克塔卡守備官強制要求冒險者立下的鮮血誓言。",
+            effect: "已立下血誓。",
+            warning: "立下血誓須嚴格遵守，一旦違誓性命不保。" // 若無警告可留空
+        },
+        map: {
+            id: "map",
+            name: "內克薩爾山谷入口地圖",
+            type: "【任務】",
+            icon: "items/02.webp",
+            img: "items/map.webp",
+            lore: "由奧克塔卡官方所提供的手繪地圖。",
+            effect: "簡略地提供了內克薩爾山谷入口附近的紀錄地點。",
+            warning: "此地圖並不詳盡。"
+        },
+        nenette: {
+            id: "nenette",
+            name: "粗糙翡翠護身符",
+            type: "【任務】",
+            icon: "items/03.webp",
+            img: "items/nenette.webp",
+            lore: "從老兵奧利因手中得到的翡翠護身符。",
+            effect: "上面刻著「內妮特」。據說是阿莫克斯踏出關隘前的親手交給老兵奧利因的物品。",
+            warning: ""
+        }
+    };
+
+    // --- 初始化行囊網格 ---
+    const TOTAL_SLOTS = 24; // 總共顯示幾個格子 (營造擴充感)
+
+    function initInventory() {
+        const grid = document.getElementById('inventory-grid');
+        const itemKeys = Object.keys(itemData);
+
+        for (let i = 0; i < TOTAL_SLOTS; i++) {
+            const slot = document.createElement('div');
+            
+            if (i < itemKeys.length) {
+                // 有物品的格子
+                const key = itemKeys[i];
+                const item = itemData[key];
+                slot.className = 'item-slot';
+                slot.id = `slot-${key}`;
+                slot.innerHTML = `<img src="${item.icon}" alt="${item.name}">`;
+                slot.onclick = () => selectItem(key, slot);
+            } else {
+                // 空格子
+                slot.className = 'item-slot empty';
+            }
+            grid.appendChild(slot);
+        }
+    }
+
+    // --- 選擇物品的互動邏輯 ---
+    function selectItem(key, selectedSlot) {
+        // 1. 移除所有槽的發光狀態，並為被點擊的槽加上發光狀態
+        document.querySelectorAll('.item-slot').forEach(s => s.classList.remove('active'));
+        selectedSlot.classList.add('active');
+
+        // 2. 隱藏預設提示，準備顯示詳細內容
+        document.getElementById('no-selection-hint').style.display = 'none';
+        const contentBox = document.getElementById('detail-content');
+        contentBox.classList.remove('active');
+
+        // 3. 獲取物品資料並短暫延遲後淡入更新
+        const item = itemData[key];
+        
+        setTimeout(() => {
+            document.getElementById('detail-img').src = item.img;
+            document.getElementById('detail-name').innerText = item.name;
+            document.getElementById('detail-type').innerText = item.type;
+            document.getElementById('detail-lore').innerText = item.lore;
+            
+            // 組合特殊效果與警告的 HTML
+            let extraHTML = "";
+            if (item.effect) {
+                extraHTML += `<div class="effect-text">✦ 效果：${item.effect}</div>`;
+            }
+            if (item.warning) {
+                extraHTML += `<div class="warning-text">⚠️ 警告：${item.warning}</div>`;
+            }
+            document.getElementById('detail-extra').innerHTML = extraHTML;
+
+            // 執行淡入
+            contentBox.classList.add('active');
+        }, 200); // 0.2秒的滑順淡入過渡
+    }
+
+    // 網頁載入後執行初始化
+    window.addEventListener('DOMContentLoaded', initInventory);
+
+</script>
+</body>
+</html>

@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>馬茲提卡 - 戰役冒險筆記</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Noto+Serif+TC:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --gold: #d4af37; --bg-dark: #0f0a07; --text: #e0d0b0; }
+        body, html { 
+            margin: 0; padding: 0; width: 100%; height: 100%; 
+            font-family: 'Noto Serif TC', serif; display: flex; justify-content: center; align-items: center; 
+            background-color: #050302; background-image: url('map/cover.webp'); 
+            background-size: cover; background-position: center; background-attachment: fixed; 
+        }
+
+        #game-window {
+            width: 1200px; height: 720px; background: var(--bg-dark); 
+            border: 3px solid var(--gold); outline: 2px solid #8b0000; outline-offset: -8px; 
+            border-radius: 4px; box-shadow: 0 20px 60px rgba(0,0,0,0.95), inset 0 0 50px rgba(0,0,0,0.9);
+            display: flex; flex-direction: column; overflow: hidden; position: relative;
+        }
+
+        #master-nav {
+            height: 60px; background: #1a1511; border-bottom: 2px solid var(--gold);
+            display: flex; align-items: center; padding: 0 30px; gap: 10px; z-index: 100; flex-shrink: 0; overflow-x: auto;
+        }
+        #master-nav::-webkit-scrollbar { display: none; }
+        .nav-brand { color: var(--gold); font-family: 'Cinzel', serif; font-size: 1.4rem; margin-right: auto; font-weight: bold; letter-spacing: 2px; }
+        .nav-btn {
+            text-decoration: none; border: 1px solid transparent; color: var(--text); white-space: nowrap;
+            font-size: 0.95rem; padding: 6px 10px; cursor: pointer; transition: 0.3s; font-family: 'Noto Serif TC', serif;
+        }
+        .nav-btn:hover { border-bottom: 1px solid var(--gold); color: #fff; }
+        .nav-btn.active { border: 1px solid var(--gold); background: rgba(212, 175, 55, 0.1); border-radius: 4px; color: var(--gold); }
+        .user-status { color: #777; font-size: 0.85rem; margin-left: auto; font-style: italic; }
+        .user-status span { color: var(--gold); font-weight: bold; font-style: normal; }
+
+        /* 🌟 純 CSS 打造的手抄本雙頁佈局 */
+        #viewer-area { 
+            flex: 1; display: flex; width: 100%; height: 100%; overflow: hidden; 
+            background: #1c130d; /* 古籍基底色 */
+        }
+        
+        /* 📖 手抄本左頁 (目錄) */
+        .notes-sidebar { 
+            width: 400px; height: 100%; padding: 30px; box-sizing: border-box;
+            background: radial-gradient(circle at left center, #261a12 0%, #170f0a 100%);
+            /* 逼真的書脊凹陷陰影與中線裝訂線 */
+            box-shadow: inset -25px 0 40px rgba(0,0,0,0.9);
+            border-right: 4px double #0a0604; 
+            display: flex; flex-direction: column; position: relative;
+        }
+        
+        .sidebar-header { 
+            display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(212, 175, 55, 0.2); 
+            padding-bottom: 15px; margin-bottom: 20px; 
+        }
+        .sidebar-header h2 { margin: 0; font-family: 'Cinzel', serif; color: var(--gold); font-size: 1.5rem; letter-spacing: 2px; text-shadow: 0 2px 5px #000; }
+        
+        .btn-new-note {
+            background: rgba(0,0,0,0.6); border: 1px solid var(--gold); color: var(--gold);
+            padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; transition: 0.3s;
+        }
+        .btn-new-note:hover { background: var(--gold); color: #000; box-shadow: 0 0 10px rgba(212, 175, 55, 0.5); }
+
+        .note-list { flex: 1; overflow-y: auto; padding-right: 15px; display: flex; flex-direction: column; gap: 15px; }
+        .note-list::-webkit-scrollbar { width: 4px; }
+        .note-list::-webkit-scrollbar-thumb { background: rgba(212, 175, 55, 0.3); }
+
+        .note-card {
+            background: rgba(0,0,0,0.3); border: 1px solid #3d2616; border-radius: 4px;
+            padding: 15px; cursor: pointer; transition: all 0.3s ease; position: relative;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+        }
+        .note-card:hover { border-color: var(--gold); background: rgba(212, 175, 55, 0.05); }
+        .note-card.active { border-color: var(--gold); background: rgba(212, 175, 55, 0.1); border-left: 4px solid var(--gold); }
+        
+        .note-card-title { font-family: 'Cinzel', 'Noto Serif TC', serif; color: var(--gold); font-size: 1.15rem; font-weight: bold; margin-bottom: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .note-card-meta { display: flex; justify-content: space-between; font-size: 0.8rem; color: #888; font-style: italic; border-bottom: 1px dashed rgba(212,175,55,0.2); padding-bottom: 5px; }
+        .note-author { color: #b8a686; }
+        .note-card-preview { font-size: 0.9rem; color: #a3927e; margin-top: 8px; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+        /* 📖 手抄本右頁 (書寫區) */
+        .editor-section { 
+            flex: 1; padding: 40px; box-sizing: border-box; 
+            background: radial-gradient(circle at right center, #261a12 0%, #170f0a 100%);
+            /* 書脊右側延伸的漸層陰影 */
+            box-shadow: inset 25px 0 40px rgba(0,0,0,0.9);
+            position: relative; display: flex; flex-direction: column; 
+        }
+        
+        .editor-content { position: relative; z-index: 2; flex: 1; display: flex; flex-direction: column; opacity: 0; transition: opacity 0.3s ease; }
+        .editor-content.active { opacity: 1; }
+
+        .editor-row { display: flex; gap: 15px; margin-bottom: 25px; align-items: flex-end; }
+        
+        /* 🌟 優化輸入框視覺：去掉死板邊框，改為古籍書寫底線 */
+        .game-input {
+            background: transparent; border: none; border-bottom: 1px dashed #7a5431; color: var(--text);
+            padding: 8px; border-radius: 0; font-family: 'Noto Serif TC', serif; transition: 0.3s;
+        }
+        .game-input:focus { outline: none; border-bottom: 1px solid var(--gold); background: rgba(212, 175, 55, 0.05); }
+        .game-input:read-only { border-color: transparent; cursor: default; color: #888; }
+        
+        #note-title { flex: 2; font-family: 'Cinzel', 'Noto Serif TC', serif; font-size: 1.6rem; color: var(--gold); font-weight: bold; letter-spacing: 1px; }
+        #note-date { flex: 1; color: #b8a686; text-align: center; font-size: 1.1rem; }
+        
+        /* 🌟 優化內容區：宛如刻印在紙上的質感 */
+        #note-body { 
+            flex: 1; resize: none; line-height: 1.8; padding: 25px; font-size: 1.15rem; 
+            background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(122, 84, 49, 0.3); border-radius: 6px;
+            color: #d1c1a3; font-family: 'Noto Serif TC', serif; box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
+            transition: 0.3s;
+        }
+        #note-body:focus { outline: none; border-color: rgba(212, 175, 55, 0.5); background: rgba(0, 0, 0, 0.4); }
+        #note-body:read-only { border-color: transparent; cursor: default; color: #888; }
+        #note-body::-webkit-scrollbar { width: 6px; }
+        #note-body::-webkit-scrollbar-thumb { background: rgba(212, 175, 55, 0.4); border-radius: 3px; }
+
+        .editor-actions { display: flex; justify-content: space-between; margin-top: 25px; }
+        .btn-save { background: linear-gradient(to bottom, #d4af37, #8c6b22); color: #000; border: none; padding: 12px 35px; font-size: 1.1rem; font-weight: bold; border-radius: 4px; cursor: pointer; transition: 0.2s; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+        .btn-save:hover { filter: brightness(1.2); box-shadow: 0 0 20px rgba(212, 175, 55, 0.6); transform: translateY(-2px); }
+        .btn-delete { background: rgba(139, 0, 0, 0.1); border: 1px solid #8b0000; color: #ff4444; padding: 10px 20px; font-size: 1rem; border-radius: 4px; cursor: pointer; transition: 0.2s; }
+        .btn-delete:hover { background: #8b0000; color: #fff; }
+
+        .no-selection { position: absolute; z-index: 2; top: 50%; left: 50%; transform: translate(-50%, -50%); color: rgba(212,175,55,0.3); font-size: 1.3rem; letter-spacing: 3px; font-family: 'Cinzel', serif; text-shadow: 0 2px 5px #000; text-align: center; width: 100%; pointer-events: none;}
+
+        #toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: rgba(10, 8, 6, 0.95); border: 1px solid var(--gold); color: var(--gold); padding: 10px 25px; border-radius: 30px; font-weight: bold; box-shadow: 0 10px 30px rgba(0,0,0,0.8); z-index: 1000; display: none; }
+    </style>
+</head>
+<body>
+
+<div id="game-window">
+    <nav id="master-nav">
+        <div class="nav-brand">黑曜黎明：奧克塔卡之誓冒險札記</div>
+        <a href="index.html" class="nav-btn active">回地圖</a>
+        <a href="item.html" class="nav-btn">獲得物品</a> 
+        <a href="journals.html" class="nav-btn">冒險筆記</a>    
+       
+        
+        <div id="login-area" style="display:flex; gap:5px; margin-left:auto;">
+            <input type="text" id="name-input" placeholder="輸入名字..." style="background:rgba(0,0,0,0.5); border:1px solid var(--gold); color:var(--text); padding:5px; border-radius:3px; font-size:0.8rem; width:100px;">
+            <button onclick="handleManualLogin()" style="background:var(--gold); border:none; padding:5px 10px; cursor:pointer; font-weight:bold; border-radius:3px; font-size:0.8rem;">登入</button>
+        </div>
+        <div class="user-status" id="user-display" style="display:none; margin-left:10px;"></div>
+        <button id="logout-btn" onclick="logout()" style="display:none; background:transparent; border:1px solid #555; color:#888; font-size:0.7rem; cursor:pointer; margin-left:10px; border-radius:3px;">登出</button>
+    </nav>
+
+    <main id="viewer-area">
+        <div class="notes-sidebar">
+            <div class="sidebar-header">
+                <h2>冒險記錄</h2>
+                <button class="btn-new-note" onclick="createNewNote()">+ 撰寫</button>
+            </div>
+            <div class="note-list" id="note-list">
+                <div style="text-align:center; color:#888; margin-top:20px;">正在翻閱手抄本...</div>
+            </div>
+        </div>
+
+        <div class="editor-section">
+            <div class="no-selection" id="no-selection-hint">
+                <div style="font-size: 3.5rem; margin-bottom: 15px; opacity:0.8;">📜</div>
+                <div id="hint-text">請選擇一篇紀錄閱覽，或提起羽毛筆撰寫</div>
+            </div>
+
+            <div class="editor-content" id="editor-content">
+                <input type="hidden" id="note-id">
+                <div class="editor-row">
+                    <input type="text" id="note-title" class="game-input" placeholder="紀錄標題...">
+                    <input type="date" id="note-date" class="game-input">
+                </div>
+                
+                <textarea id="note-body" class="game-textarea" placeholder="在此記錄調查線索..."></textarea>
+                
+                <div class="editor-actions">
+                    <button class="btn-delete" id="btn-delete" onclick="deleteNote()">撕毀此頁</button>
+                    <button class="btn-save" id="btn-save" onclick="saveNote()">保存紀錄</button>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<div id="toast">✅ 同步完成</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="auth.js"></script>
+<script>
+    const db = authClient; 
+    const TABLE_NAME = 'adventure_notes'; 
+
+    let notesData = [];
+    let currentUser = null;
+
+    function handleManualLogin() {
+        const name = document.getElementById('name-input').value.trim();
+        if(name) {
+            login(name); 
+        } else {
+            alert("請輸入您的名字！"); // 🌟 提示文字簡化
+        }
+    }
+
+    function checkUser() {
+        const user = getUser();
+        const loginArea = document.getElementById('login-area');
+        const userDisplay = document.getElementById('user-display');
+        const logoutBtn = document.getElementById('logout-btn');
+
+        if (user) {
+            currentUser = user.name;
+            if(loginArea) loginArea.style.display = 'none'; 
+            if(userDisplay) {
+                userDisplay.style.display = 'block';
+                userDisplay.innerHTML = `執筆者：<span style="color:var(--gold); font-weight:bold;">${currentUser}</span>`;
+            }
+            if(logoutBtn) logoutBtn.style.display = 'block';
+        } else {
+            currentUser = null;
+            if(loginArea) loginArea.style.display = 'flex';
+            if(userDisplay) {
+                userDisplay.style.display = 'block';
+                userDisplay.innerHTML = `👁️ 訪客模式 (僅能查閱)`;
+            }
+            if(logoutBtn) logoutBtn.style.display = 'none';
+        }
+    }
+
+    async function loadNotes() {
+        try {
+            const { data, error } = await db.from(TABLE_NAME).select('*').order('adventure_date', { ascending: false });
+            if (error) throw error;
+            notesData = data || [];
+            renderNoteList();
+        } catch(err) {
+            console.error(err);
+            document.getElementById('note-list').innerHTML = `<div style="text-align:center; color:#ff4444; padding:10px; font-size:0.9rem;">⚠️ 讀取失敗。請確認網路與資料庫狀態。</div>`;
+        }
+    }
+
+    function renderNoteList() {
+        const listEl = document.getElementById('note-list');
+        listEl.innerHTML = notesData.length === 0 ? '<div style="text-align:center; color:#888; margin-top:20px;">目前手抄本一片空白。</div>' : '';
+
+        notesData.forEach(note => {
+            const card = document.createElement('div');
+            card.className = 'note-card';
+            card.id = `card-${note.id}`;
+            card.onclick = () => selectNote(note.id);
+            card.innerHTML = `
+                <div class="note-card-title">${note.title || '無標題'}</div>
+                <div class="note-card-meta">
+                    <span>✦ ${note.adventure_date || '未知日期'}</span>
+                    <span class="note-author">✍️ ${note.author_name || '佚名'}</span>
+                </div>
+                <div class="note-card-preview">${note.content || '...'}</div>
+            `;
+            listEl.appendChild(card);
+        });
+    }
+
+    function selectNote(id) {
+        document.querySelectorAll('.note-card').forEach(c => c.classList.remove('active'));
+        const activeCard = document.getElementById(`card-${id}`);
+        if(activeCard) activeCard.classList.add('active');
+
+        const note = notesData.find(n => n.id === id);
+        if (!note) return;
+
+        document.getElementById('no-selection-hint').style.display = 'none';
+        document.getElementById('note-id').value = note.id;
+        document.getElementById('note-title').value = note.title;
+        document.getElementById('note-date').value = note.adventure_date;
+        document.getElementById('note-body').value = note.content;
+        
+        const isAuthor = currentUser && (currentUser === note.author_name || currentUser === 'GM');
+        
+        document.getElementById('note-title').readOnly = !isAuthor;
+        document.getElementById('note-date').readOnly = !isAuthor;
+        document.getElementById('note-body').readOnly = !isAuthor;
+        
+        document.getElementById('btn-delete').style.display = isAuthor ? 'block' : 'none';
+        document.getElementById('btn-save').style.display = isAuthor ? 'block' : 'none';
+
+        if(!isAuthor) {
+            document.getElementById('note-body').placeholder = "唯讀模式：僅有執筆作者能修改內容。";
+        }
+
+        const editor = document.getElementById('editor-content');
+        editor.classList.remove('active');
+        setTimeout(() => editor.classList.add('active'), 50);
+    }
+
+    function createNewNote() {
+        if (!currentUser) {
+            alert("⚠️ 權限不足！請先在右上角輸入名字進行登入。");
+            return;
+        }
+
+        document.querySelectorAll('.note-card').forEach(c => c.classList.remove('active'));
+        document.getElementById('no-selection-hint').style.display = 'none';
+        
+        document.getElementById('note-id').value = '';
+        document.getElementById('note-title').value = '';
+        document.getElementById('note-title').readOnly = false;
+        document.getElementById('note-date').value = new Date().toISOString().split('T')[0];
+        document.getElementById('note-date').readOnly = false;
+        document.getElementById('note-body').value = '';
+        document.getElementById('note-body').readOnly = false;
+        document.getElementById('note-body').placeholder = "在此落筆記錄今日的調查情報...";
+        
+        document.getElementById('btn-delete').style.display = 'none';
+        document.getElementById('btn-save').style.display = 'block';
+
+        const editor = document.getElementById('editor-content');
+        editor.classList.remove('active');
+        setTimeout(() => editor.classList.add('active'), 50);
+    }
+
+    async function saveNote() {
+        if (!currentUser) return;
+        
+        const idInput = document.getElementById('note-id').value;
+        const title = document.getElementById('note-title').value.trim() || '未命名紀錄';
+        const adventure_date = document.getElementById('note-date').value;
+        const content = document.getElementById('note-body').value.trim();
+
+        showToast("⏳ 正在謄寫...");
+
+        const payload = {
+            author_name: currentUser,
+            title: title,
+            adventure_date: adventure_date,
+            content: content
+        };
+
+        try {
+            if (idInput) {
+                await db.from(TABLE_NAME).update(payload).eq('id', idInput);
+            } else {
+                await db.from(TABLE_NAME).insert(payload);
+            }
+            showToast("📜 墨跡已乾，同步完成");
+            await loadNotes();
+            
+            const activeId = idInput || (notesData[0] ? notesData[0].id : null);
+            if(activeId) selectNote(activeId);
+        } catch(err) {
+            console.error("同步錯誤:", err);
+            showToast("⚠️ 同步失敗，請檢查網路或資料庫權限");
+        }
+    }
+
+    async function deleteNote() {
+        const idInput = document.getElementById('note-id').value;
+        if (!idInput || !currentUser) return;
+
+        if (confirm("確定要撕毀這一頁嗎？此操作將永久抹除紀錄。")) {
+            try {
+                await db.from(TABLE_NAME).delete().eq('id', idInput);
+                document.getElementById('editor-content').classList.remove('active');
+                setTimeout(() => { document.getElementById('no-selection-hint').style.display = 'block'; }, 300);
+                showToast("紀錄已銷毀");
+                await loadNotes();
+            } catch(err) {
+                console.error("刪除錯誤:", err);
+            }
+        }
+    }
+
+    function showToast(msg) {
+        const toast = document.getElementById('toast');
+        toast.innerText = msg;
+        toast.style.display = 'block';
+        setTimeout(() => { toast.style.display = 'none'; }, 2000);
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+        checkUser();
+        loadNotes();
+    });
+</script>
+</body>
+</html>

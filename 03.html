@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>馬茲提卡 - 血獠之廷</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Noto+Serif+TC:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        /* --- 基礎設定 --- */
+        :root { --gold: #d4af37; --bg-dark: rgba(15, 12, 10, 0.9); --text: #e0d0b0; }
+        body, html { 
+            margin: 0; padding: 0; width: 100%; height: 100%; 
+            font-family: 'Noto Serif TC', serif; 
+            display: flex; justify-content: center; align-items: center; 
+            
+            /* --- 通用外部背景設定 --- */
+            background-color: #0a0a0a; /* 圖片載入前的備用底色 */
+            background-image: url('map/cover.webp'); /* 👈 在這裡填寫您的圖片路徑 */
+            background-size: cover; 
+            background-position: center; 
+            background-attachment: fixed; /* 固定背景 */
+        }
+
+        /* --- 固定的 1200x720 主框架 --- */
+        #game-window {
+            width: 1200px; height: 720px; background: #000;
+            border: 3px solid var(--gold); border-radius: 8px;
+            box-shadow: 0 15px 50px rgba(0,0,0,0.9);
+            display: flex; flex-direction: column; overflow: hidden; position: relative;
+        }
+
+        /* --- 頂部總導航列 --- */
+        #master-nav {
+            height: 60px; background: #1a1511; border-bottom: 2px solid var(--gold);
+            display: flex; align-items: center; padding: 0 30px; gap: 15px; z-index: 100; flex-shrink: 0;
+        }
+        .nav-brand { color: var(--gold); font-family: 'Cinzel', serif; font-size: 1.4rem; margin-right: auto; font-weight: bold; letter-spacing: 2px; }
+        .nav-btn {
+            text-decoration: none; border: 1px solid transparent; color: var(--text);
+            font-size: 1.05rem; padding: 6px 12px; cursor: pointer; transition: 0.3s; font-family: 'Noto Serif TC', serif;
+        }
+        .nav-btn:hover { border-bottom: 1px solid var(--gold); color: #fff; }
+        .nav-btn.active { border: 1px solid var(--gold); background: rgba(212, 175, 55, 0.1); border-radius: 4px; color: var(--gold); }
+
+        /* --- 主畫布區 --- */
+        #viewer-area { flex: 1; position: relative; width: 100%; height: 100%; overflow: hidden; }
+        .scene-background { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-image: url('map/bloodfang.webp'); background-size: cover; background-position: center; filter: brightness(0.5); z-index: 0; transform: scale(1.02); }
+        .game-ui { position: relative; z-index: 10; width: 100%; height: 100%; display: flex; justify-content: space-between; }
+        
+        /* === 左側：動態展示區 === */
+        .character-display-zone { position: relative; flex: 1; height: 100%; pointer-events: none; }
+        
+        .character-sprite { 
+            position: absolute; 
+            opacity: 0; transform: translateX(-20px); transition: 0.5s ease; 
+            filter: drop-shadow(0 0 20px rgba(0,0,0,0.8)); z-index: 1; 
+        }
+        .character-sprite.active { opacity: 1; transform: translateX(0); }
+        
+        /* 故事視窗 */
+        .npc-story-overlay { 
+            position: absolute; right: 30px; bottom: 40px; 
+            width: 340px; max-height: 520px; overflow-y: auto;
+            background: rgba(10, 8, 6, 0.95); 
+            border: 1px solid var(--gold); padding: 25px; 
+            color: var(--text); border-radius: 4px; 
+            box-shadow: 0 0 30px rgba(0,0,0,0.9), inset 0 0 15px rgba(212, 175, 55, 0.1); 
+            opacity: 0; transform: translateX(20px); transition: all 0.4s ease; 
+            text-align: justify; line-height: 1.7; font-size: 0.95rem; pointer-events: auto; z-index: 2; 
+        }
+        .npc-story-overlay::-webkit-scrollbar { width: 4px; }
+        .npc-story-overlay::-webkit-scrollbar-thumb { background: rgba(212, 175, 55, 0.4); }
+        .npc-story-overlay.active { opacity: 1; transform: translateX(0); }
+        .npc-story-overlay strong { color: var(--gold); font-size: 1.2rem; font-family: 'Cinzel', 'Noto Serif TC', serif; display: block; border-bottom: 1px solid rgba(212, 175, 55, 0.3); padding-bottom: 8px; margin-bottom: 12px; letter-spacing: 1px; }
+
+        /* === 右側：資訊面板 === */
+        .info-panel { width: 400px; height: 100%; background: var(--bg-dark); border-left: 2px solid var(--gold); display: flex; box-shadow: -15px 0 40px rgba(0,0,0,0.9); flex-shrink: 0; z-index: 3;}
+        .bookmarks { width: 50px; height: 100%; background: #2c251d; display: flex; flex-direction: column; border-right: 1px solid var(--gold); }
+        .bookmark-btn { writing-mode: vertical-lr; padding: 20px 10px; color: var(--gold); cursor: pointer; border-bottom: 1px solid rgba(212, 175, 55, 0.2); opacity: 0.7; letter-spacing: 3px; font-weight: bold; transition: 0.3s; font-size: 0.9rem; }
+        .bookmark-btn:hover { opacity: 1; background: rgba(212, 175, 55, 0.1); }
+        .bookmark-btn.active { opacity: 1; background: rgba(212, 175, 55, 0.2); border-left: 4px solid var(--gold); } 
+        
+        .scroll-content { flex: 1; padding: 20px; overflow-y: auto; color: var(--text); line-height: 1.8; }
+        .scroll-content::-webkit-scrollbar { width: 6px; }
+        .scroll-content::-webkit-scrollbar-thumb { background: rgba(212, 175, 55, 0.5); border-radius: 3px; }
+        
+        .info-panel h2 { font-family: 'Cinzel', serif; color: var(--gold); border-bottom: 1px solid var(--gold); margin: 0 0 15px 0; font-size: 1.6rem; }
+        .section { display: none; animation: fadeInPage 0.4s ease; }
+        .section.active { display: block; }
+        
+        .interaction-card { background: rgba(255,255,255,0.03); padding: 12px; border: 1px solid rgba(212, 175, 55, 0.1); margin-bottom: 12px; cursor: pointer; transition: 0.3s; }
+        .interaction-card:hover { border-color: var(--gold); background: rgba(212, 175, 55, 0.1); box-shadow: 0 0 15px rgba(212, 175, 55, 0.2);}
+        .interaction-card strong { color: var(--gold); display: block; margin-bottom: 5px; font-size: 1.05rem;}
+        .lore-desc { font-size: 1rem; text-align: justify; margin-bottom: 20px; padding-top: 10px; border-top: 1px dashed rgba(212, 175, 55, 0.3); }
+    </style>
+</head>
+<body>
+
+<div id="game-window">
+    <nav id="master-nav">
+        <div class="nav-brand">黑曜黎明：奧克塔卡之誓冒險札記</div>
+        <a href="index.html" class="nav-btn active">回地圖</a>
+        <a href="item.html" class="nav-btn">獲得物品</a> 
+        <a href="journals.html" class="nav-btn">冒險筆記</a>
+    </nav>
+
+    <main id="viewer-area">
+        <div class="scene-background"></div>
+        <div class="game-ui">
+            <div class="character-display-zone">
+                <img id="npc-sprite" class="character-sprite" src="" alt="">
+                <div id="story-box" class="npc-story-overlay"></div>
+            </div>
+
+            <div class="info-panel">
+                <div class="bookmarks">
+                    <div class="bookmark-btn active" onclick="showTab('intro')">總督府</div>
+                    <div class="bookmark-btn" onclick="showTab('members')">政軍要員</div>
+                </div>
+
+                <div class="scroll-content">
+                    <div id="intro" class="section active">
+                        <h2>血獠之廷</h2>
+                        <div class="lore-desc">
+                            <p>  這是一座宏偉的階梯式石造宮殿，巨大而沉重的黑曜石柱支撐著前庭。作為奧克塔卡的最高政軍中心，這裡的空氣中總是瀰漫著肅殺與威嚴的氣息。</p>
+                            <p>  廣場上，隨時可以看見穿著豹皮裝備的精銳衛兵正在進行殘酷的對練。冒險者們可以在此接受官方的懸賞任務、領取賞金，或是試圖接觸那些掌握著前哨站命脈的上位者。</p>
+                        </div>
+                    </div>
+
+                    <div id="members" class="section">
+                        <h2>政軍要員</h2>
+                        
+                        <div class="interaction-card" onclick="loadNpc('tlaca')">
+                            <strong>特拉卡</strong><span>奧克塔卡守備官</span>
+                        </div>
+                        
+                        <div class="interaction-card" onclick="loadNpc('osomat')">
+                            <strong>歐索馬特</strong><span>首席豹騎士將軍</span>
+                        </div>
+
+                        <div class="interaction-card" onclick="loadNpc('chimali')">
+                            <strong>奇馬利</strong><span>首席書記官</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script>
+    // --- 集中管理劇本文字與立繪路徑 ---
+    const npcData = {
+        tlaca: {
+            name: "特拉卡",
+            title: "守備官",
+            img: "npc/tlaca.webp",
+            isHorizontal: false, 
+            bg: null,
+            story: "庫塔卡人類，英俊且冷酷。他披著華麗的綠咬鵑羽毛披風，眼神銳利如鷹，是這座前哨站實質上的最高權力者。<br><br><strong>【情報】</strong>告知冒險者真正的任務：是進入內克薩爾山谷，尋找失蹤的最高統治者貝拉多。半個月前帶著羽蛇親衛隊進入山谷後便失蹤了。"
+        },
+        osomat: {
+            name: "歐索馬特",
+            title: "豹騎士將軍",
+            img: "npc/osomat.webp",
+            isHorizontal: false,
+            bg: null,
+            story: "血獠之廷的豹騎士與普通衛兵的主要負責人。身形極度高大魁梧，裸露的雙臂佈滿了戰鬥與儀式留下的駭人傷疤，散發著令人窒息的壓迫感。<br><br><strong>【情報】</strong>從他口中得知內妮特的父親阿莫克斯進入山谷後便下落不明。"
+        },
+        chimali: {
+            name: "奇馬利",
+            title: "書記官",
+            img: "npc/chimali.webp",
+            isHorizontal: false,
+            bg: null,
+            story: "負責整個奧克塔卡的文書行政工作以及非軍事的城政事項。身形消瘦微駝，手指上總是沾染著洗不掉的黑色墨水，隨身抱著一疊厚厚的樹皮紙與結繩記事。<br><br><strong>【情報】</strong>🔒（未曾深入交談）"
+        }
+    };
+
+    let defaultSceneBg = ""; 
+    window.addEventListener('DOMContentLoaded', () => {
+        const bgEl = document.querySelector('.scene-background');
+        if (bgEl) {
+            defaultSceneBg = window.getComputedStyle(bgEl).backgroundImage.replace(/url\(['"]?(.*?)['"]?\)/i, '$1');
+        }
+    });
+
+    function showTab(id) {
+        document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+        document.querySelectorAll('.bookmark-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+        event.currentTarget.classList.add('active');
+        
+        document.getElementById('npc-sprite').classList.remove('active');
+        document.getElementById('story-box').classList.remove('active');
+
+        const sceneBg = document.querySelector('.scene-background');
+        if(sceneBg && defaultSceneBg) {
+            sceneBg.style.backgroundImage = `url('${defaultSceneBg}')`;
+        }
+    }
+
+    function loadNpc(key) {
+        const sprite = document.getElementById('npc-sprite');
+        const storyBox = document.getElementById('story-box');
+        const sceneBg = document.querySelector('.scene-background'); 
+        const data = npcData[key];
+        
+        sprite.classList.remove('active');
+        storyBox.classList.remove('active');
+        
+        setTimeout(() => {
+            sprite.src = data.img;
+            
+            if (sceneBg) {
+                if (data.bg) {
+                    sceneBg.style.backgroundImage = `url('${data.bg}')`;
+                } else if (defaultSceneBg) {
+                    sceneBg.style.backgroundImage = `url('${defaultSceneBg}')`;
+                }
+            }
+
+            if (data.isHorizontal) {
+                sprite.style.maxWidth = '950px';
+                sprite.style.width = '950px';
+                sprite.style.height = '100%';
+                sprite.style.left = '0px';
+                sprite.style.bottom = '0px';
+                sprite.style.objectFit = 'cover';
+                sprite.style.objectPosition = '85% center';
+                sprite.style.zIndex = '0';
+            } else {
+                sprite.style.maxWidth = '550px';
+                sprite.style.width = 'auto';
+                sprite.style.height = '100%';
+                sprite.style.left = '10px';
+                sprite.style.bottom = '0px';
+                sprite.style.objectFit = 'contain';
+                sprite.style.objectPosition = 'bottom left';
+                sprite.style.zIndex = '1';
+            }
+            
+            storyBox.innerHTML = `<strong>${data.name} <span style="font-size:0.85rem; color:#888; font-family:'Noto Serif TC';">| ${data.title}</span></strong>${data.story}`;
+            sprite.classList.add('active');
+            storyBox.classList.add('active');
+        }, 250);
+    }
+</script>
+</body>
+</html>

@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>馬茲提卡 - 庫茲帕市集廣場</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Noto+Serif+TC:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        /* --- 基礎設定 --- */
+        :root { --gold: #d4af37; --bg-dark: rgba(15, 12, 10, 0.9); --text: #e0d0b0; }
+        body, html { 
+            margin: 0; padding: 0; width: 100%; height: 100%; 
+            font-family: 'Noto Serif TC', serif; 
+            display: flex; justify-content: center; align-items: center; 
+            
+            /* --- 通用外部背景設定 --- */
+            background-color: #0a0a0a; /* 圖片載入前的備用底色 */
+            background-image: url('map/cover.webp'); /* 👈 在這裡填寫您的圖片路徑 */
+            background-size: cover; 
+            background-position: center; 
+            background-attachment: fixed; /* 固定背景 */
+        }
+
+        /* --- 固定的 1200x720 主框架 --- */
+        #game-window {
+            width: 1200px; height: 720px; background: #000;
+            border: 3px solid var(--gold); border-radius: 8px;
+            box-shadow: 0 15px 50px rgba(0,0,0,0.9);
+            display: flex; flex-direction: column; overflow: hidden; position: relative;
+        }
+
+        /* --- 頂部總導航列 --- */
+        #master-nav {
+            height: 60px; background: #1a1511; border-bottom: 2px solid var(--gold);
+            display: flex; align-items: center; padding: 0 30px; gap: 20px; z-index: 100; flex-shrink: 0;
+        }
+        .nav-brand { color: var(--gold); font-family: 'Cinzel', serif; font-size: 1.4rem; margin-right: auto; font-weight: bold; letter-spacing: 2px; }
+        .nav-btn {
+            text-decoration: none; border: 1px solid transparent; color: var(--text);
+            font-size: 1.1rem; padding: 6px 15px; cursor: pointer; transition: 0.3s; font-family: 'Noto Serif TC', serif;
+        }
+        .nav-btn:hover { border-bottom: 1px solid var(--gold); color: #fff; }
+        .nav-btn.active { border: 1px solid var(--gold); background: rgba(212, 175, 55, 0.1); border-radius: 4px; color: var(--gold); }
+
+        /* --- 主畫布區 --- */
+        #viewer-area { flex: 1; position: relative; width: 100%; height: 100%; overflow: hidden; }
+        .scene-background { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-image: url('map/market.webp'); background-size: cover; background-position: center; filter: brightness(0.45); z-index: 0; transform: scale(1.02); }
+        .game-ui { position: relative; z-index: 10; width: 100%; height: 100%; display: flex; justify-content: space-between; }
+        
+        /* === 左側：動態展示區 === */
+        .character-display-zone { position: relative; flex: 1; height: 100%; pointer-events: none; }
+        
+        /* 立繪基礎設定 (CSS不寫死，交由底下的JS精準控制) */
+        .character-sprite { 
+            position: absolute; 
+            opacity: 0; transform: translateX(-20px); transition: 0.5s ease; 
+            filter: drop-shadow(0 0 20px rgba(0,0,0,0.8)); 
+        }
+        .character-sprite.active { opacity: 1; transform: translateX(0); }
+        
+        /* 故事視窗 */
+        .npc-story-overlay { 
+            position: absolute; right: 30px; bottom: 40px; 
+            width: 340px; max-height: 520px; overflow-y: auto;
+            background: rgba(10, 8, 6, 0.95); border: 1px solid var(--gold); padding: 25px; 
+            color: var(--text); border-radius: 4px; 
+            box-shadow: 0 0 30px rgba(0,0,0,0.9), inset 0 0 15px rgba(212, 175, 55, 0.1); 
+            opacity: 0; transform: translateX(20px); transition: all 0.4s ease; 
+            text-align: justify; line-height: 1.7; font-size: 0.95rem; pointer-events: auto; z-index: 2; 
+        }
+        .npc-story-overlay::-webkit-scrollbar { width: 4px; }
+        .npc-story-overlay::-webkit-scrollbar-thumb { background: rgba(212, 175, 55, 0.4); }
+        .npc-story-overlay.active { opacity: 1; transform: translateX(0); }
+        .npc-story-overlay strong { color: var(--gold); font-size: 1.2rem; font-family: 'Cinzel', 'Noto Serif TC', serif; display: block; border-bottom: 1px solid rgba(212, 175, 55, 0.3); padding-bottom: 8px; margin-bottom: 12px; letter-spacing: 1px; }
+
+        /* === 右側：資訊面板 (寬度 400px) === */
+        .info-panel { width: 400px; height: 100%; background: var(--bg-dark); border-left: 2px solid var(--gold); display: flex; box-shadow: -15px 0 40px rgba(0,0,0,0.9); flex-shrink: 0; z-index: 3;}
+        .bookmarks { width: 50px; height: 100%; background: #2c251d; display: flex; flex-direction: column; border-right: 1px solid var(--gold); }
+        .bookmark-btn { writing-mode: vertical-lr; padding: 20px 10px; color: var(--gold); cursor: pointer; border-bottom: 1px solid rgba(212, 175, 55, 0.2); opacity: 0.7; letter-spacing: 3px; font-weight: bold; transition: 0.3s; font-size: 0.9rem; }
+        .bookmark-btn:hover { opacity: 1; background: rgba(212, 175, 55, 0.1); }
+        .bookmark-btn.active { opacity: 1; background: rgba(212, 175, 55, 0.2); border-left: 4px solid var(--gold); } 
+        
+        .scroll-content { flex: 1; padding: 20px; overflow-y: auto; color: var(--text); line-height: 1.8; }
+        .scroll-content::-webkit-scrollbar { width: 6px; }
+        .scroll-content::-webkit-scrollbar-thumb { background: rgba(212, 175, 55, 0.5); border-radius: 3px; }
+        
+        .info-panel h2 { font-family: 'Cinzel', serif; color: var(--gold); border-bottom: 1px solid var(--gold); margin: 0 0 15px 0; font-size: 1.6rem; }
+        .section { display: none; animation: fadeInPage 0.4s ease; }
+        .section.active { display: block; }
+        
+        .interaction-card { background: rgba(255,255,255,0.03); padding: 12px; border: 1px solid rgba(212, 175, 55, 0.1); margin-bottom: 12px; cursor: pointer; transition: 0.3s; }
+        .interaction-card:hover { border-color: var(--gold); background: rgba(212, 175, 55, 0.1); box-shadow: 0 0 15px rgba(212, 175, 55, 0.2);}
+        .interaction-card strong { color: var(--gold); display: block; margin-bottom: 5px; font-size: 1.05rem;}
+        .lore-desc { font-size: 1rem; text-align: justify; margin-bottom: 20px; padding-top: 10px; border-top: 1px dashed rgba(212, 175, 55, 0.3); }
+        .gm-read { font-style: italic; color: #b8a686; background: rgba(0,0,0,0.3); padding: 10px; border-left: 3px solid #8b5a2b; font-size: 0.95rem; }
+    </style>
+</head>
+<body>
+
+<div id="game-window">
+    <nav id="master-nav">
+        <div class="nav-brand">黑曜黎明：奧克塔卡之誓冒險札記</div>
+        <a href="index.html" class="nav-btn active">回地圖</a>
+        <a href="item.html" class="nav-btn">獲得物品</a> 
+        <a href="journals.html" class="nav-btn">冒險筆記</a>
+    </nav>
+
+    <main id="viewer-area">
+        <div class="scene-background"></div>
+        <div class="game-ui">
+            <div class="character-display-zone">
+                <img id="npc-sprite" class="character-sprite" src="" alt="">
+                <div id="story-box" class="npc-story-overlay"></div>
+            </div>
+
+            <div class="info-panel">
+                <div class="bookmarks">
+                    <div class="bookmark-btn active" onclick="showTab('intro')">市集</div>
+                    <div class="bookmark-btn" onclick="showTab('members')">市集商人</div>
+                </div>
+
+                <div class="scroll-content">
+                    <div id="intro" class="section active">
+                        <h2>庫茲帕市集廣場</h2>
+                        <div class="lore-desc">
+                            <p>  離開客棧的寧靜，庫茲帕市集是一片悶熱且混亂的泥濘廣場。空氣中混雜著烤玉米、汗水、血腥味以及劣質香料的刺鼻氣味。每一個攤位前都在進行著討價還價，但爭奪的不是奢侈品，而是能在明天多活一秒的生存物資。你們的手中的 5 枚 太陽金輪，在這裡既是財富，也是催命符。</p>
+                        </div>
+                    </div>
+
+                    <div id="members" class="section">
+                        <h2>市集商販</h2>
+                        
+                        <div class="interaction-card" onclick="loadNpc('marantzi')">
+                            <strong>瑪蘭齊</strong><span>珍寶商</span>
+                        </div>
+                        
+                        <div class="interaction-card" onclick="loadNpc('itzli')">
+                            <strong>伊茲利</strong><span>獵人雜貨商</span>
+                        </div>
+
+                        <div class="interaction-card" onclick="loadNpc('xico')">
+                            <strong>錢莊老闆 (🔒)</strong><span>錢莊與香料商</span>
+                        </div>
+
+                        <div class="interaction-card" onclick="loadNpc('comai')">
+                            <strong>科麥</strong><span>蔬果商</span>
+                        </div>
+
+                        <div class="interaction-card" onclick="loadNpc('tonaca')">
+                            <strong>托納卡</strong><span>肉販</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<script>
+    // --- 資料庫標記 ---
+const npcData = {
+        marantzi: {
+            name: "瑪蘭齊",
+            title: "珍寶商",
+            img: "npc/marantzi.webp",
+            isHorizontal: true, 
+            bg: "map/marantzi_bg.webp", // 🌟 新增：瑪蘭齊的專屬帳篷內景圖片路徑
+            story: "廣場上一座顯眼的暗紅色大帳篷。這裡與周圍的破爛攤位截然不同，透著一股奢華氣息。推開帳篷垂下的絲綢門簾，一股甜膩且昂貴的煙味撲面而來。一位穿著華麗、與周遭髒亂環境格格不入的中年女子。身上戴著沉甸甸的綠松石與黃金飾品，抽著一根長長的煙管。<br><br><strong>【情報】</strong>「喲，又是一批被特拉卡騙去送死的新面孔。」「說吧，你們是來買命，還是來賣命的？」。<br>能夠在這裡買到高級的貨物，也可以在這裡出售「好東西」。"
+        },
+        itzli: {
+            name: "伊茲利",
+            title: "獵人雜貨商",
+            img: "npc/itzli.webp",
+            isHorizontal: false,
+            bg: null,
+            story: "臉上有一道貫穿左眼的可怕傷疤。攤位上有許多雜貨，肩上站著一隻叢林獼猴。<br><br><strong>【情報】</strong>🔒（未曾深入交談）"
+        },
+        xico: {
+            name: "錢莊老闆 (🔒)",
+            title: "錢莊與香料商",
+            img: "npc/xico.webp",
+            isHorizontal: false,
+            bg: null,
+            story: "🔒"
+        },
+        comai: {
+            name: "科麥",
+            title: "蔬果商",
+            img: "npc/comai.webp",
+            isHorizontal: false,
+            bg: null,
+            story: "皮膚黝黑、笑容滿面的老農夫。攤位上堆滿了色澤飽滿的金黃玉米與南瓜。<br><br><strong>【情報】</strong>🔒（未曾深入交談）"
+        },
+        tonaca: {
+            name: "托納卡",
+            title: "肉販",
+            img: "npc/tonaca.webp",
+            isHorizontal: false,
+            bg: null,
+            story: "身高近兩公尺的魁梧巨漢，胸前的厚重皮圍裙沾滿了血跡。攤位掛滿了新鮮的鹿肉、野豬肉與叢林禽類。<br><br><strong>【情報】</strong>🔒（未曾深入交談）"
+        }
+    };
+
+// 🌟 新增：用來記錄最初始的市集背景路徑（網頁載入時自動抓取）
+    let defaultMarketBg = ""; 
+    window.addEventListener('DOMContentLoaded', () => {
+        const bgEl = document.querySelector('.scene-background');
+        if (bgEl) {
+            // 從 CSS background-image 中把 url("...") 的純路徑撈出來存著
+            defaultMarketBg = window.getComputedStyle(bgEl).backgroundImage.replace(/url\(['"]?(.*?)['"]?\)/i, '$1');
+        }
+    });
+
+    function showTab(id) {
+        document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+        document.querySelectorAll('.bookmark-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+        event.currentTarget.classList.add('active');
+        
+        document.getElementById('npc-sprite').classList.remove('active');
+        document.getElementById('story-box').classList.remove('active');
+
+        // 🌟 新增：切換到其他分頁（如點擊「市集」簡介）時，自動切回原本的市集大背景
+        const sceneBg = document.querySelector('.scene-background');
+        if(sceneBg && defaultMarketBg) {
+            sceneBg.style.backgroundImage = `url('${defaultMarketBg}')`;
+        }
+    }
+
+    function loadNpc(key) {
+        const sprite = document.getElementById('npc-sprite');
+        const storyBox = document.getElementById('story-box');
+        const sceneBg = document.querySelector('.scene-background'); // 🌟 抓取大背景元素
+        const data = npcData[key];
+        
+        sprite.classList.remove('active');
+        storyBox.classList.remove('active');
+        
+        setTimeout(() => {
+            sprite.src = data.img;
+            
+            // 🌟 新增：同步切換背景的精準邏輯
+            if (sceneBg) {
+                if (data.bg) {
+                    // 如果這個 NPC 有設定專屬背景（如瑪蘭齊），就切換過去
+                    sceneBg.style.backgroundImage = `url('${data.bg}')`;
+                } else if (defaultMarketBg) {
+                    // 如果沒有專屬背景（一般商人），就還原成最初的市集背景
+                    sceneBg.style.backgroundImage = `url('${defaultMarketBg}')`;
+                }
+            }
+
+            // 【橫向 CG 比例與臉部優化控制】
+            if (data.isHorizontal) {
+                sprite.style.maxWidth = '950px';
+                sprite.style.width = '950px';
+                sprite.style.height = '100%';
+                sprite.style.left = '0px';
+                sprite.style.bottom = '0px';
+                sprite.style.objectFit = 'cover';
+                sprite.style.objectPosition = '85% center'; // 完美拉出臉部不被面板遮擋
+                sprite.style.zIndex = '0';
+} else {
+                // 【標準直向立繪控制 - 放大優化版】
+                sprite.style.maxWidth = '550px';   // 🌟 放寬寬度限制 (原本是 380px)
+                sprite.style.width = 'auto';
+                sprite.style.height = '100%';      // 🌟 高度直接撐滿到底 (原本是 90%)
+                sprite.style.left = '40px';        // 維持靠左對齊
+                sprite.style.bottom = '0px';
+                sprite.style.objectFit = 'contain';
+                sprite.style.objectPosition = 'bottom left';
+                sprite.style.zIndex = '1';
+            }
+            
+            storyBox.innerHTML = `<strong>${data.name} <span style="font-size:0.85rem; color:#888; font-family:'Noto Serif TC';">| ${data.title}</span></strong>${data.story}`;
+            sprite.classList.add('active');
+            storyBox.classList.add('active');
+        }, 250);
+    }
+</script>
+</body>
+</html>
